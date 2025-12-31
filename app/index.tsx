@@ -1,78 +1,115 @@
+import { printerService } from "@/services/printer";
+import { socketService } from "@/services/socket";
+import React, { useCallback, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+// Componentes
 import Header from "@/components/Header";
 import InitialConfig from "@/components/InitialConfig";
 import LogSection from "@/components/LogSection";
 import PrintTestButton from "@/components/PrintTestButton";
 import StatusBadge from "@/components/StatusBadge";
-import { useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function App() {
-  const [restaurantId, setRestaurantId] = useState("");
-  const [logEntries, setLogEntries] = useState<string[]>([
-    "✅ Aplicativo iniciado",
-    "📁 Arquivo processado: documento.pdf",
-    "🔄 Sincronização concluída",
-    "⚠️ Atenção: Verifique conexão",
-  ]);
+export default function Screen() {
+  const [idInput, setIdInput] = useState(""); // Valor do TextInput
+  const [isConnected, setIsConnected] = useState(false); // Status do Socket
+  const [logs, setLogs] = useState<string[]>([]);
+
+  // Função para adicionar logs sem duplicar esforço
+  const addLog = useCallback((msg: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs((prev) => [`[${timestamp}] ${msg}`, ...prev]);
+  }, []);
+
+  const handleConnect = () => {
+    if (!idInput.trim()) return;
+
+    addLog("🚀 Iniciando conexão...");
+
+    socketService.connect(
+      idInput,
+      async (message) => {
+        if (message.type === "print_order") {
+          addLog(`📩 Pedido #${message.order.id} recebido do servidor`);
+
+          const success = await printerService.printOrder(message.order);
+
+          if (success) {
+            addLog(
+              `✅ Pedido #${message.order.id} enviado para a fila de impressão`
+            );
+          }
+        }
+      },
+      (status) => {
+        setIsConnected(status);
+        if (status) {
+          addLog("✅ Conectado ao servidor Rangooo!");
+        } else {
+          addLog("❌ Conexão perdida com o servidor.");
+        }
+      }
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Header />
-        <View style={styles.badges}>
-          <StatusBadge
-            label="Status impressora"
-            status="Desconectado"
-            variant="offline"
-          />
+      <Header />
 
-          <StatusBadge
-            label="Status Servidor"
-            status="Conectado"
-            variant="online"
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* LÓGICA DE TRANSIÇÃO */}
+        {!isConnected ? (
+          // Se NÃO está conectado, mostra o input
+          <InitialConfig
+            value={idInput}
+            onChange={setIdInput}
+            onSubmit={handleConnect}
           />
-        </View>
-        <InitialConfig
-          value={restaurantId}
-          onChange={setRestaurantId}
-          onSubmit={() => {
-            console.log("Conectar com:", restaurantId);
-          }}
-        />
-        <LogSection logs={logEntries} />
-        <PrintTestButton
-          disabled={false}
-          onPress={() => {
-            console.log("🖨️ Teste de impressão");
-          }}
-        />
-      </View>
+        ) : (
+          // Se ESTÁ conectado, mostra o painel de logs e badges
+          <View style={styles.dashboard}>
+            <View style={styles.badgesRow}>
+              <StatusBadge
+                label="Impressora"
+                status="DESCONECTADA"
+                variant="offline"
+              />
+              <StatusBadge
+                label="Servidor"
+                status="CONECTADO"
+                variant="online"
+              />
+            </View>
+
+            <LogSection logs={logs} />
+
+            <PrintTestButton
+              onPress={() => addLog("📑 Teste de impressão disparado...")}
+            />
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
-    flex: 1, // Isso faz o SafeArea preencher a tela
-    backgroundColor: "#061320", // Cor de fundo no SafeArea evita "piscada" branca
-  },
-  container: {
     flex: 1,
     backgroundColor: "#061320",
-    alignItems: "center",
-    paddingBottom: 16,
   },
-  badges: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  content: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  dashboard: {
+    flex: 1,
     width: "100%",
-    paddingVertical: 4,
-    paddingHorizontal: 16,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#e5e7eb",
+  badgesRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 10,
   },
 });
