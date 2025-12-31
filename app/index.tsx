@@ -1,11 +1,52 @@
-import { StyleSheet, Text, View } from "react-native";
+import Header from "@/components/Header";
+import InitialConfig from "@/components/InitialConfig";
+import LogSection from "@/components/LogSection";
+import PrintTestButton from "@/components/PrintTestButton";
+import StatusBadge from "@/components/StatusBadge";
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function App() {
+  const [restaurantId, setRestaurantId] = useState("");
+  const [logEntries, setLogEntries] = useState<string[]>([
+    "✅ Aplicativo iniciado",
+    "📁 Arquivo processado: documento.pdf",
+    "🔄 Sincronização concluída",
+    "⚠️ Atenção: Verifique conexão",
+  ]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>Agente de Impressão Rangooo</Text>
+        <Header />
+        <View style={styles.badges}>
+          <StatusBadge
+            label="Status impressora"
+            status="Desconectado"
+            variant="offline"
+          />
+
+          <StatusBadge
+            label="Status Servidor"
+            status="Conectado"
+            variant="online"
+          />
+        </View>
+        <InitialConfig
+          value={restaurantId}
+          onChange={setRestaurantId}
+          onSubmit={() => {
+            console.log("Conectar com:", restaurantId);
+          }}
+        />
+        <LogSection logs={logEntries} />
+        <PrintTestButton
+          disabled={false}
+          onPress={() => {
+            console.log("🖨️ Teste de impressão");
+          }}
+        />
       </View>
     </SafeAreaView>
   );
